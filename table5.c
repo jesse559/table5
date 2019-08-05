@@ -2,30 +2,13 @@
 #include <stdlib.h>
 #include "p_strings.h"
 #include "p_vector/p_vector_int.h"
+#include "../../arg_parser/arg_parser.h"
+#include "table5.h"
 
-#define NEW_ROW -11
-
-#define PO_ALIGN_LEFT		1
-#define PO_ALIGN_RIGHT		2
-#define PO_ALIGN_CENTER		3
-
-struct print_options{
-	bool top_bar;
-	bool bottom_bar;
-	bool seperate_rows;
-	char c_empty;
-	char c_seperator;
-	char c_edge;
-	char c_bar;
-	uint margin_left;
-	uint margin_right;
-	int align_style;
-};
-
-void print_options_setdefaults(struct print_options *po)
+void print_options_set_defaults(struct print_options *po)
 {
-	po->top_bar = true;
-	po->bottom_bar = true;
+	po->top_bar = false;
+	po->bottom_bar = false;
 	po->seperate_rows = false;
 	po->c_empty = ' ';
 	po->c_seperator = '|';
@@ -235,7 +218,50 @@ bool print_table(char *f_buffer, size_t f_size, const struct print_options *po)
 
 int main(int argc, char *argv[])
 {
-	char *fpath = argv[1];
+
+	struct argument_parser parser;
+	parser.argc = argc;
+	parser.argv = (const char **) argv;
+	parser.key_list = "tbs";
+	parser.name_list = NULL;
+	parser.name_count = 0;
+	
+	//printing table
+	struct print_options po;
+	char *fpath;
+	print_options_set_defaults(&po);
+
+	if (argument_parser_parse(&parser) != 0){
+		printf("Invalid arguments!\n");
+		return -1;
+	}
+
+	struct argument *arg;
+	int file_count = 0;
+	for (int i=0; i < parser.arg_count; i++){
+		arg = &parser.arg_list[i];
+		if (arg->key == 0 && arg->name == NULL){
+			fpath = arg->value;
+			if (++file_count > 1){
+				printf("More than one file input\nExiting\n");
+				return 0;
+			}
+		}
+
+		switch(arg->key){
+			case 't':
+				po.top_bar = true;
+				break;
+			case 'b':
+				po.bottom_bar = true;
+				break;
+			case 's':
+				po.seperate_rows = true;
+				break;
+		}
+	}
+
+
 	FILE *file = fopen(fpath, "r");
 	if (!file){
 		printf("Couldn't open file\n");
@@ -257,13 +283,14 @@ int main(int argc, char *argv[])
 		free(f_buffer);
 		return -1;
 	}
-
-	//printing table
-	struct print_options po;
-	print_options_setdefaults(&po);
+	
 	print_table(f_buffer, f_size, &po);
 
 	fclose(file);
 	free(f_buffer);
+	return 0;
+
+invalid_argument:
+	printf("invalid argument\n");
 	return 0;
 }
